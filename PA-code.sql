@@ -73,13 +73,10 @@ BEGIN
     country,
     COUNT(customer_id),
     SUM(total_spent),
-    ROUND(AVG(total_spent), 2),
+    AVG(total_spent),
     COUNT(CASE WHEN active_status = 'Active' THEN 1 END),
     -- Calculate percentage contribution using global total revenue
-    ROUND(
-      (SUM(total_spent) * 100.0) / (SELECT SUM(total_spent) FROM report_customer_details),
-      2
-    )
+    (SUM(total_spent) * 100.0) / (SELECT SUM(total_spent) FROM report_customer_details),
   FROM report_customer_details
   WHERE city = NEW.city AND country = NEW.country
   GROUP BY city, country;
@@ -87,7 +84,7 @@ BEGIN
   -- Update percentage contributions for ALL rows (due to new global total)
   SELECT SUM(total_spent) INTO total_revenue FROM report_customer_details;
   UPDATE report_location_summary
-  SET revenue_percentage_contribution = ROUND((total_revenue / total_revenue) * 100, 2)
+  SET revenue_percentage_contribution = (total_revenue / total_revenue) * 100
   WHERE revenue_percentage_contribution IS NOT NULL;
 
   RETURN NEW;
@@ -157,12 +154,9 @@ BEGIN
     country,
     COUNT(customer_id),
     SUM(total_spent),
-    ROUND(AVG(total_spent), 2),
+    AVG(total_spent),
     COUNT(CASE WHEN active_status = 'Active' THEN 1 END),
-    ROUND(
-      (SUM(total_spent) * 100.0) / NULLIF((SELECT SUM(total_spent) FROM report_customer_details), 0), 
-      2
-    )
+    (SUM(total_spent) * 100.0) / NULLIF((SELECT SUM(total_spent) FROM report_customer_details), 0), 
   FROM report_customer_details
   GROUP BY city, country;
 
