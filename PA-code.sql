@@ -43,7 +43,7 @@ SELECT
   SUM(total_spent) AS total_revenue,
   AVG(total_spent) AS avg_spend_per_customer,
   COUNT(CASE WHEN active_status = 'Active' THEN 1 END) AS active_customers,
-  (SUM(total_spent) * 100.0) / (SELECT SUM(total_spent) FROM report_customer_details)) AS revenue_percentage_contribution
+  (SUM(total_spent) * 100.0) / (SELECT SUM(total_spent) FROM report_customer_details) AS revenue_percentage_contribution
 FROM report_customer_details
 GROUP BY city, country
 ORDER BY total_revenue DESC;
