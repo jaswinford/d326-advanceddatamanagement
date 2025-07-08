@@ -52,13 +52,13 @@ ORDER BY total_revenue DESC;
 CREATE OR REPLACE FUNCTION update_location_summary()
 RETURNS TRIGGER AS $$
 DECLARE
-  total_revenue NUMERIC;
+  global_total_revenue NUMERIC;
 BEGIN
-  -- Delete existing summary row for the new customer's city/country
+  -- Delete old summary row for the city/country
   DELETE FROM report_location_summary
   WHERE city = NEW.city AND country = NEW.country;
 
-  -- Recalculate summary for the city/country using all relevant detailed rows
+  -- Recalculate summary for city/country
   INSERT INTO report_location_summary (
     city,
     country,
@@ -71,26 +71,32 @@ BEGIN
   SELECT
     city,
     country,
-    COUNT(customer_id),
-    SUM(total_spent),
-    AVG(total_spent),
-    COUNT(CASE WHEN active_status = 'Active' THEN 1 END),
-    -- Calculate percentage contribution using global total revenue
-    (SUM(total_spent) * 100.0) / (SELECT SUM(total_spent) FROM report_customer_details),
+    COUNT(customer_id) AS total_customers,
+    SUM(total_spent) AS total_revenue,
+    AVG(total_spent) AS avg_spend_per_customer, -- ROUND removed
+    COUNT(CASE WHEN active_status = 'Active' THEN 1 END) AS active_customers,
+    -- Remove ROUND and directly compute percentage
+    (
+      (SUM(total_spent) * 100.0) / 
+      (SELECT NULLIF(SUM(total_spent), 0) FROM report_customer_details)
+    ) AS revenue_percentage_contribution
   FROM report_customer_details
   WHERE city = NEW.city AND country = NEW.country
   GROUP BY city, country;
 
-  -- Update percentage contributions for ALL rows (due to new global total)
-  SELECT SUM(total_spent) INTO total_revenue FROM report_customer_details;
+  -- Calculate global total
+  SELECT SUM(total_spent) INTO global_total_revenue
+  FROM report_customer_details;
+
+  -- Update all percentages without ROUND
   UPDATE report_location_summary
-  SET revenue_percentage_contribution = (total_revenue / total_revenue) * 100
-  WHERE revenue_percentage_contribution IS NOT NULL;
+  SET revenue_percentage_contribution = (
+    (total_revenue / NULLIF(global_total_revenue, 0)) * 100
+  );
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 
 -- Create Trigger for updating summary table after insertions in detailed table
 CREATE TRIGGER trigger_update_summary
